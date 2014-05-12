@@ -13,7 +13,7 @@
 #include <fstream>
 static long ID = 1;
 static const int fieldSize = 9;
-static const int inputSize = fieldSize, outputSize = fieldSize, hiddenSize = 4 * fieldSize;
+static const int inputSize = fieldSize, outputSize = fieldSize, hiddenSize = 20;
 static const double DELTA = 1;
 class Neuron{
 private:
@@ -152,6 +152,19 @@ public:
 #ifdef DEBUG
 		this->printNet();
 #endif
+	}
+	void appendToTeachFile(){
+		std::ofstream teach("teach", std::ofstream::out|std::ofstream::app);
+		char c = 'y';
+		std::cout << "It's time to append\n";
+		while(c == 'y' || c=='Y'){
+			playAndTeach(teach);
+			std::cout << "Teach again? [y/n]\n";
+			std::cin >> c;
+		}
+		teach.close();
+	}
+	void teachNetAndPlay(){
 		std::vector<std::vector<double> > s, d;
 		std::ifstream teacher("teach");
 		while(teacher.good()){
@@ -168,6 +181,7 @@ public:
 			s.push_back(s1);
 			d.push_back(d1);
 		}
+		teacher.close();
 #ifdef DEBUG
 		for(int i = 0; i < s.size() - 1;++i){
 			for(int j = 0; j < s[i].size(); ++j)
@@ -180,7 +194,7 @@ public:
 #endif
 		long counter = 0;
 		std::cout << "Start learning " << std::endl;
-		while(1){
+		while(counter < 1000){
 			counter ++;
 			double e = -1, t;
 			for(int i = 0;i < s.size() - 1; ++i){
@@ -202,10 +216,25 @@ public:
 			std::cout << "Want to play again? [y/n]" << std::endl;
 			std::cin >> c;
 		}
-    }
+	}
 	void currentField(std::vector<double> f){
+		std::cout << f.size() << std::endl;
 		for(int i = 0; i < f.size(); ++i){
-			std::cout << std::setw(3) <<  f[i] << " ";
+			if(fabs(f[i] - 0) < 1e-4){
+				std::cout << std::setw(3) << "|O|";
+			}
+			else if(fabs(f[i] - 1) < 1e-4){
+				std::cout << std::setw(3) << "|X|";
+			}
+			else{
+				std::cout << std::setw(3) << "| |";
+			}
+			if((i+1)%3 == 0){
+				std::cout << std::endl;
+				for(int j = 0; j < 10; ++j)
+					std::cout << "_";
+				std::cout << std::endl;
+			}
 		}
 		std::cout << std::endl;
 	}
@@ -222,6 +251,48 @@ public:
 					return f[i];
 		}
 		return 0.5;
+	}
+	void playAndTeach(std::ofstream &teach){
+		std::cout << "Info:\n \t0 - 'O' ceil\n\t0.5 - blank ceil \n\t 1 - 'X' ceil\n";
+		std::vector<double> field, Omove;
+		for(int i = 0; i < fieldSize; ++i){
+			field.push_back(0.5);
+		}
+		int moves = 0, move;
+		char player;
+		while(moves < fieldSize){
+			if(moves % 2 == 0)
+				player = 'X';
+			else
+				player = 'O';
+			std::cout << "Please enter a number of ceil where you want to place from '" << player << "'" << std::endl;
+			currentField(field);
+			std::cin >> move;
+			if(fabs(field[move - 1] - 0.5) > 1e-4){
+				std::cout << "This ceil already busy, please try again" << std::endl;
+				continue;
+			}
+			else{
+				if(moves % 2 == 0)
+					field[move - 1] = 1;
+				else
+					field[move - 1] = 0;
+			}
+			if(moves % 2 == 1){
+				for(int i = 0; i < field.size(); ++i)
+					teach << Omove[i] << " ";
+				teach << "\t";
+				for(int i = 0; i < Omove.size(); ++i)
+					teach << field[i] << " ";
+				teach << std::endl;
+			}
+			if(checkWinner(field) != 0.5){
+				std::cout << "'" << player << " win!" << std::endl;
+				return;
+			}
+			Omove = field;
+			moves++;
+		}
 	}
 	void play(){
 		std::cout << "Info:\n \t0 - 'O' ceil\n\t0.5 - blank ceil \n\t 1 - 'X' ceil\n";
@@ -250,7 +321,7 @@ public:
 			moves++;
 			int movePos;
 			double value = 1;
-			currentField(aiMove);
+			//currentField(aiMove);
 			for(int i = 0; i < aiMove.size(); ++i){
 #ifdef DEBUG
 				std::cout << "AI " << aiMove[i] << " V " << value << std::endl;
@@ -265,8 +336,9 @@ public:
 				std::cout << "AI WINS!" << std::endl;
 				return;
 			}
-			currentField(field);
+			//currentField(field);
 		}
+		std::cout << "Draw\n";
 	}
 	double error(std::vector<double> a, std::vector<double> b){
 		if(a.size() != b.size()){
@@ -371,9 +443,16 @@ public:
     }
 };
 
-int main()
+int main(int argc, char **argv)
 {
-    srand(time(NULL));
-    std::ios_base::sync_with_stdio(false);
-    NeuronNet *neuroNet = new NeuronNet();
+    if(argc == 1){
+		srand(time(NULL));
+		std::ios_base::sync_with_stdio(false);
+		NeuronNet *neuroNet = new NeuronNet();
+		neuroNet->teachNetAndPlay();
+	}
+	else{
+		NeuronNet *neuroNet = new NeuronNet();
+		neuroNet->appendToTeachFile();
+	}
 }
